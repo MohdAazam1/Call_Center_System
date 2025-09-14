@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Call Center Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f4f6f9; padding: 20px; }
+        h1 { text-align: center; }
+        .container { display: flex; gap: 20px; justify-content: center; margin-top: 20px; }
+        .box { background: white; padding: 20px; border-radius: 10px; width: 28%; box-shadow: 0 4px 6px rgba(0,0,0,0.08);}
+        ul { list-style: none; padding: 0; }
+        li { padding: 6px; margin: 4px 0; border-bottom: 1px solid #eee; }
+    </style>
+</head>
+<body>
+    <h1>📞 Live Call Center Dashboard</h1>
+    <p>Default agent: <strong>agent1</strong> / <strong>password</strong></p>
+    <div class="container">
+        <div class="box">
+            <h2>Incoming Calls</h2>
+            <ul id="queue"></ul>
+        </div>
+        <div class="box">
+            <h2>Active Calls</h2>
+            <ul id="active"></ul>
+        </div>
+        <div class="box">
+            <h2>Finished Calls</h2>
+            <ul id="finished"></ul>
+        </div>
+    </div>
+
+    <script>
+        var socket = new SockJS('/ws');
+        var stompClient = Stomp.over(socket);
+
+        stompClient.connect({}, function () {
+            stompClient.subscribe('/topic/newCall', function (msg) {
+                var call = JSON.parse(msg.body);
+                var li = document.createElement('li');
+                li.id = 'caller-' + call.customerId;
+                li.innerText = 'Customer ' + call.customerId;
+                document.getElementById('queue').appendChild(li);
+            });
+
+            stompClient.subscribe('/topic/answerCall', function (msg) {
+                var text = msg.body;
+                // remove from queue if present
+                var m = text.match(/Customer (\d+)/);
+                if (m) {
+                    var id = m[1];
+                    var el = document.getElementById('caller-' + id);
+                    if (el) el.remove();
+                }
+                var li = document.createElement('li');
+                li.innerText = text;
+                document.getElementById('active').appendChild(li);
+            });
+
+            stompClient.subscribe('/topic/finishCall', function (msg) {
+                var text = msg.body;
+                var li = document.createElement('li');
+                li.innerText = text;
+                document.getElementById('finished').appendChild(li);
+            });
+        });
+    </script>
+</body>
+</html>
